@@ -3,7 +3,8 @@ import base64, json, os, subprocess, sys, asyncio
 import numpy as np
 from sfx import render_sfx, SR
 
-OUT = '/home/claude/out'
+import os as _os
+OUT = _os.environ.get('OUT', _os.getcwd())
 C = json.load(open(f'{OUT}/cues.json'))
 VO = f'{OUT}/vo.mp3' if os.path.exists(f'{OUT}/vo.mp3') else None
 FPS = 30
