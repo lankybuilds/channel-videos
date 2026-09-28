@@ -36,3 +36,11 @@ Work in a scratch folder with `OUT=<folder>`. Copy in `pipeline/`, then:
 - Time: 10:00 AM today. If it's already past about 9:45 AM, use 6:00 PM today, or 10:00 AM tomorrow if that has passed too.
 - Caption: 2-3 short lines (hook, question for comments, "Source: ..."), then 5-6 relevant hashtags. No emojis.
 - Send the owner the planner link, time and caption when done.
+
+## Long-form essays (YouTube, 1920x1080)
+Same hard rules as above, adapted to landscape. Reference build: `pipeline/essay/` (first essay, 2026-09-28).
+- Script 650-800 words, eleven_v3 Mike voice, one take (about 4,900 credits; fits one request under 5,000 characters).
+- `scenes.py` defines ~30 scenes; every element is timed to a word (`W(line, 'word')`) from the aligned lines. At most 3 wipes (chapter starts), one inverted scene, chapter label top-left, source line bottom-left, chapter ticks on the progress bar.
+- `retime_essay.py` caps: 0.32 s inside lines, 0.6 s between lines, 0.85 s before beats, 1.1 s at chapter starts (keeps it over 4 minutes).
+- Render with `render_seg.py` in parallel segments of 1,000-1,500 frames (a single long background render gets killed), concat, mux mix.mp3, then volume + alimiter to about -14 LUFS.
+- Commit to `videos/essays/YYYY-MM-DD-slug.mp4` and log in `essay-topics.md`.

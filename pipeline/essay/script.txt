@@ -1,0 +1,86 @@
+[serious] Turn on the news, and you hear the same story.
+[serious] Money is tight. Jobs are shaky. The game is rigged.
+[intrigued] Making money has NEVER been harder. Right?
+[curious] Here is the thing nobody tells you.
+[building excitement] By the numbers, starting to earn has never been EASIER.
+[serious] Not effortless. But easier than at any point in history.
+[intrigued] Let me show you the numbers.
+
+[dramatic] First, think about what it used to take.
+[serious] Want to sell something? You needed a storefront.
+[serious] That meant a lease. Inventory. A bank loan.
+[serious] Want to publish a book? You needed a publisher to say yes.
+[serious] Want to be on TV? You needed a network to say yes.
+[curious] Someone always held the gate.
+[intrigued] And even if you got through, who could you reach?
+[serious] In two thousand five, about one billion people were online.
+[building excitement] In twenty twenty-five? About SIX billion.
+[impressed] Three quarters of everyone on Earth.
+[curious] That is your potential audience. From your phone.
+[serious] And the storefront?
+[impressed] Shopify's starter plan costs five dollars a month.
+[intrigued] A lease became a subscription cheaper than lunch.
+
+[dramatic] So are people actually using this?
+[building excitement] Yes. In record numbers.
+[serious] In twenty nineteen, Americans filed about three and a half million applications to start a business.
+[impressed] In twenty twenty-three, they filed five and a half million.
+[building excitement] A new all-time record.
+[serious] Freelancing tells the same story.
+[impressed] Sixty-four million Americans freelanced in twenty twenty-three.
+[intrigued] Together they earned about one point two seven trillion dollars.
+[serious] And creators?
+[impressed] YouTube says it paid out over one hundred BILLION dollars in four years.
+[curious] To creators, artists, and media companies.
+[serious] A career path that barely existed twenty years ago.
+
+[dramatic] But here is where it gets wild.
+[intrigued] Artificial intelligence.
+[serious] For most of history, an idea was cheap.
+[serious] Turning it into something real was expensive.
+[serious] You needed a coder. A designer. A writer. A team.
+[building excitement] Now one person can do much of that alone.
+[curious] Picture it. You have an idea for an app.
+[serious] Ten years ago, you hired developers and waited months.
+[building excitement] Today you describe it in plain English, and AI helps write the code.
+[intrigued] Need a logo? AI sketches options in minutes.
+[intrigued] A website, product photos, an ad, a script?
+[impressed] First drafts in an afternoon, not a quarter.
+[curious] Research that took a week of reading? Summarized before your coffee cools.
+[whispering] Even the voice you are hearing right now was made with AI.
+[curious] And this is not hype. It has been measured.
+[serious] In one experiment, developers built a web server with an AI coding assistant.
+[impressed] They finished fifty-six percent faster.
+[serious] In an M I T study, professionals wrote with ChatGPT.
+[impressed] Their time dropped forty percent. Their quality went UP eighteen percent.
+[serious] At Boston Consulting Group, consultants used GPT four.
+[impressed] Twenty-five percent faster. Forty percent higher quality.
+[serious] And in customer support, AI help raised productivity fourteen percent.
+[building excitement] For beginners? Thirty-four percent.
+[intrigued] Read that again. The biggest gains went to BEGINNERS.
+[curious] AI shrinks the gap between a newcomer and an expert.
+[serious] You can see it in who starts companies now.
+[impressed] In twenty nineteen, about twenty-four percent of new startups had a single founder.
+[building excitement] By the first half of twenty twenty-five, it was thirty-six percent.
+[intrigued] More people are building alone. Because now they can.
+
+[serious] Now, let's be honest.
+[serious] This is not a get-rich-quick story.
+[serious] Rent is high. Groceries are high. That part is real.
+[serious] Competition is real too. Everyone has the same tools.
+[curious] And many new businesses still fail.
+[serious] Easier does not mean guaranteed.
+[intrigued] But notice what changed.
+[serious] The obstacle used to be permission and money.
+[building excitement] Now the obstacle is mostly one thing. Starting.
+[serious] The gate is gone.
+[curious] You do not need a loan to test an idea.
+[curious] You do not need a team to build a first version.
+[intrigued] You need a problem worth solving, and a weekend.
+[serious] Pick one skill. Pick one problem.
+[building excitement] Put it in front of real people, and learn fast.
+[serious] So the next time a headline says it is impossible,
+[dramatic] remember the numbers.
+[building excitement] The tools are cheaper, faster, and smarter than ever.
+[serious] The only question left is simple.
+[dramatic] What are YOU going to build?
