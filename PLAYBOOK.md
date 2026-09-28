@@ -15,10 +15,10 @@ The daily scheduled run follows this file. Keep it up to date when the owner giv
 Alternate days: tech/AI in numbers, then general mind-blowing facts (science, history, the body, big-number comparisons). Vary the format (surge/growth chart, myth-bust, scale comparison, "how it works") so the channel doesn't look mass-produced. Check `topics.md` to avoid repeats, and add each new topic there.
 
 ## Voice (ElevenLabs connector)
-- Voice "Mike - Social Media, Narrator, Clean", voice_id E4aVOlWL5DGbFy7TWmZA, model eleven_v3, generations_count 2 (plan limit).
+- Voice "Mike - Social Media, Narrator, Clean", voice_id E4aVOlWL5DGbFy7TWmZA, model eleven_v3, generations_count 1 (ONE take only: the owner wants to save credits).
 - Create one flow per video (creative_create_flow), named "<date> - <topic>".
 - Script: 55-70 words (about 25-28 s after trimming pauses), 2-9 word sentences, numbers spelled out in words, CAPS on 1-2 emphasis words, a varied eleven_v3 tag at the start of each line ([dramatic], [building excitement], [impressed], [whispering], [intrigued], [serious], [curious]...).
-- The workspace cannot download from ElevenLabs. Message the owner the script plus the flow link, and ask them to attach their favorite take as an MP3.
+- The workspace cannot download from ElevenLabs. Message the owner the script plus the flow link, and ask them to attach the take as an MP3 (or ask for a redo if they dislike it).
 
 ## Build (after the MP3 arrives)
 Work in a scratch folder with `OUT=<folder>`. Copy in `pipeline/`, then:
