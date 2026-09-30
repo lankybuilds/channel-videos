@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Born To Be Happy</title>
+<style>
+  @font-face { font-family: "Anton"; src: url(data:font/woff2;base64,/*ANTON*/) format("woff2"); font-display: block; }
+  @font-face { font-family: "JetBrains Mono"; src: url(data:font/woff2;base64,/*MONO*/) format("woff2"); font-display: block; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; cursor: none; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<audio id="vo" preload="auto" src="/*AUDIO*/"></audio>
+<script>
+/* ============================================================
+   BORN TO BE HAPPY? vertical cinematic kinetic-type (1080x1920)
+   One master timeline (requestAnimationFrame). All timings in CUES
+   come from the voiceover's word times.
+   Click / tap / any key restarts from 0 with sound. #t=12 jumps.
+   ============================================================ */
+const C = /*CUES*/;
+const W = 1080, H = 1920, DUR = C.dur;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+cv.width = W; cv.height = H;
+function fitCanvas() {
+  const s = Math.min(innerWidth / W, innerHeight / H);
+  cv.style.width = (W * s) + 'px'; cv.style.height = (H * s) + 'px';
+}
+addEventListener('resize', fitCanvas); fitCanvas();
+
+const HEAD = '"Anton", Impact, "Arial Narrow", sans-serif';
+const MONO = '"JetBrains Mono", ui-monospace, Menlo, monospace';
+let FG = '#FFF', BG = '#000', INV = false;
+
+/* ---------- helpers ---------- */
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const prog = (t, t0, d) => clamp((t - t0) / d);
+const easeOutExpo = x => x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const easeInOut = x => x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+const easeOutBack = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const lerp = (a, b, k) => a + (b - a) * k;
+function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
+
+function setFont(px, fam) { ctx.font = `${px}px ${fam}`; }
+function fitSize(str, fam, px, maxW) { setFont(px, fam); const w = ctx.measureText(str).width; return w > maxW ? px * maxW / w : px; }
+function drawText(str, x, y, o = {}) {
+  const { px = 100, fam = HEAD, align = 'center', alpha = 1, maxW = 900, color = FG, size = null, glow = 0 } = o;
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  setFont(size || fitSize(str, fam, px, maxW), fam);
+  ctx.textAlign = align; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = color;
+  if (glow) { ctx.shadowColor = color; ctx.shadowBlur = glow; }
+  ctx.fillText(str, x, y);
+  ctx.restore();
+}
+function lines(arr, x, y0, px, gap, o = {}) {   // stacked lines share one size
+  const size = Math.min(...arr.map(s => fitSize(s, o.fam || HEAD, px, o.maxW || 900)));
+  arr.forEach((s, i) => drawText(s, x, y0 + i * size * gap, { ...o, size }));
+  return size;
+}
+function enter(t, t0, d = 0.4) { const p = prog(t, t0, d), e = easeOutExpo(p); return { a: clamp(p * 3), dy: (1 - e) * 40, on: t >= t0 }; }
+function slam(t, t0, d = 0.3, from = 2.2) { const p = prog(t, t0, d); return { s: 1 + (from - 1) * (1 - easeOutExpo(p)), a: clamp((t - t0) / 0.06), on: t >= t0 }; }
+function withScale(cx, cy, s, fn) { ctx.save(); ctx.translate(cx, cy); ctx.scale(s, s); ctx.translate(-cx, -cy); fn(); ctx.restore(); }
+function fadeOut(t, t0, d = 0.3) { return 1 - prog(t, t0, d); }
+
+/* the 4 hit moments: 50%, 51 million, white flip, 70-90% */
+const HITS = [C.half, C.mil, C.cut4, C.pct70];
+function shake(t) {
+  let dx = 0, dy = 0;
+  for (const s of HITS) if (t >= s && t < s + 0.32) {
+    const a = 9 * Math.pow(1 - (t - s) / 0.32, 2);
+    dx += a * Math.sin(t * 190); dy += a * Math.cos(t * 233);
+  }
+  return [dx, dy];
+}
+
+/* ---------- ambient particles (always gently moving) ---------- */
+const PARTS = (() => { const r = rng(7); return Array.from({ length: 70 }, () => ({ x: r() * W, y: r() * H, s: 1 + r() * 3.2, v: 8 + r() * 22, ph: r() * 6.28, a: 0.15 + r() * 0.45 })); })();
+function particles(t, up = 1, boost = 1) {
+  ctx.save(); ctx.fillStyle = FG;
+  for (const p of PARTS) {
+    const y = ((p.y - t * p.v * up) % H + H) % H;
+    const x = p.x + Math.sin(t * 0.4 + p.ph) * 18;
+    ctx.globalAlpha = p.a * (0.6 + 0.4 * Math.sin(t * 1.3 + p.ph)) * boost * (INV ? 0.5 : 1);
+    ctx.beginPath(); ctx.arc(x, y, p.s * (boost > 1 ? 1.2 : 1), 0, 6.283); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/* ---------- people ---------- */
+function person(x, y, h, fill, glow = 0) {   // (x,y) = feet centre
+  const hr = h * 0.13, bw = h * 0.36, bh = h * 0.6;
+  ctx.save(); ctx.fillStyle = fill;
+  if (glow) { ctx.shadowColor = '#FFF'; ctx.shadowBlur = glow; }
+  ctx.beginPath(); ctx.arc(x, y - h + hr, hr, 0, 6.283); ctx.fill();
+  const top = y - bh, r = bw / 2;
+  ctx.beginPath();
+  ctx.moveTo(x - r, y); ctx.lineTo(x - r, top + r); ctx.arc(x, top + r, r, Math.PI, 0); ctx.lineTo(x + r, y); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+const ROW_X = [180, 360, 540, 720, 900];
+const GRAY_I = 3;
+function row(t, y, grayK, fillK, alpha = 1) {   // grayK 0..1 fade to gray, fillK 0..1 back to glowing white
+  ctx.save(); ctx.globalAlpha *= alpha;
+  ROW_X.forEach((x, i) => {
+    let c = 255, glow = 0;
+    if (i === GRAY_I) {
+      c = lerp(255, 72, grayK);
+      c = lerp(c, 255, fillK);
+      glow = fillK * (40 + 18 * Math.sin(t * 3));
+    }
+    const v = Math.round(c);
+    person(x, y, 250, `rgb(${v},${v},${v})`, glow);
+  });
+  ctx.restore();
+}
+
+/* ---------- counter ---------- */
+function pop(t, t0, amt = 0.18, d = 0.3) { return t < t0 ? 1 : 1 + amt * (1 - easeOutExpo(prog(t, t0, d))); }
+function counter(t, t0, t1, to) { return Math.round(to * easeOutExpo(prog(t, t0, t1 - t0))); }
+
+/* ============ SCENE 1: HOOK ============ */
+function helix(t, cx, cy, hgt, alpha = 1) {
+  const n = 26, amp = 150, spin = t * 1.6;
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.lineCap = 'round';
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const y = cy - hgt / 2 + hgt * i / (n - 1);
+    const a = i * 0.5 + spin;
+    pts.push({ y, x1: cx + amp * Math.sin(a), z1: Math.cos(a), x2: cx + amp * Math.sin(a + Math.PI), z2: Math.cos(a + Math.PI) });
+  }
+  for (const p of pts) {                       // rungs
+    ctx.strokeStyle = FG; ctx.globalAlpha = alpha * 0.28; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(p.x1, p.y); ctx.lineTo(p.x2, p.y); ctx.stroke();
+  }
+  for (const k of [1, 2]) {                    // strands + nodes, depth-shaded
+    for (let i = 0; i < n - 1; i++) {
+      const a = pts[i], b = pts[i + 1], z = (a['z' + k] + b['z' + k]) / 2;
+      ctx.strokeStyle = FG; ctx.globalAlpha = alpha * (0.35 + 0.65 * (z + 1) / 2); ctx.lineWidth = 5 + 4 * (z + 1) / 2;
+      ctx.beginPath(); ctx.moveTo(a['x' + k], a.y); ctx.lineTo(b['x' + k], b.y); ctx.stroke();
+    }
+    for (const p of pts) {
+      const z = p['z' + k];
+      ctx.fillStyle = FG; ctx.globalAlpha = alpha * (0.3 + 0.7 * (z + 1) / 2);
+      ctx.shadowColor = '#FFF'; ctx.shadowBlur = z > 0.5 ? 18 : 0;
+      ctx.beginPath(); ctx.arc(p['x' + k], p.y, 7 + 5 * (z + 1) / 2, 0, 6.283); ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+  ctx.restore();
+}
+function scene1(t) {
+  const push = 1 + 0.12 * easeInOut(prog(t, 0, C.cut2));
+  withScale(540, 700, push, () => helix(t, 540, 700, 720));
+  // text is on screen from frame 0, snapping in with a tiny settle
+  const s = 1 + 0.25 * (1 - easeOutExpo(prog(t, 0, 0.35)));
+  withScale(540, 1330, s, () => lines(['WERE YOU BORN', 'TO BE HAPPY?'], 540, 1300, 150, 1.02));
+}
+
+/* ============ SCENE 2: THE GENES ============ */
+function scene2(t) {
+  const slide = easeInOut(prog(t, C.cut2, 0.55));
+  helix(t, lerp(540, -260, slide), lerp(700, 800, slide), 720, 1 - slide * 0.6);
+  const v = counter(t, C.cnt2, C.half, 50);
+  const land = { s: pop(t, C.half) };
+  const beat = t > C.half + 0.4 ? 1 + 0.035 * Math.pow(Math.max(0, Math.sin((t - C.half) * 2 * Math.PI * 1.1)), 8) : 1;
+  if (t >= C.cnt2) withScale(540, 900, land.s * beat, () =>
+    drawText(v + '%', 540, 1080, { px: 420, glow: t >= C.half ? 40 : 0 }));
+  const e = enter(t, C.lab2);
+  lines(['of your happiness can', 'come from your genes.'], 540, 1270 + e.dy, 84, 1.12, { alpha: e.a });
+  drawText('twin studies', 540, 1480, { px: 28, fam: MONO, alpha: e.a * 0.55 });
+}
+
+/* ============ SCENE 3: THE REALITY ============ */
+function scene3(t) {
+  const grayK = easeInOut(prog(t, C.gray, 1.4));
+  const r = enter(t, C.cut3 + 0.05, 0.5);
+  row(t, 1150 + r.dy * 0.5, grayK, 0, r.a);
+  if (t >= C.cnt3) {
+    const v = counter(t, C.cnt3, C.mil, 51);
+    const land = { s: pop(t, C.mil) };
+    withScale(540, 560, land.s, () => drawText(v + ' MILLION', 540, 640, { px: 210, maxW: 940, glow: t >= C.mil ? 30 : 0 }));
+  }
+  const e = enter(t, C.lab3);
+  lines(['American adults are', 'living with depression.'], 540, 1300 + e.dy, 68, 1.15, { alpha: e.a });
+  drawText('Gallup, 2026', 540, 1480, { px: 28, fam: MONO, alpha: e.a * 0.55 });
+  const f = enter(t, C.gray, 0.6);
+  drawText("THAT'S 1 IN 5", 540, 790 + f.dy * 0.5, { px: 92, alpha: f.a * 0.9 });
+}
+
+/* ============ SCENE 4: THE TURN (the one white scene) ============ */
+function brain(t) {
+  const cx = 540, cy = 1230, R = 300;
+  const draw = easeInOut(prog(t, C.brain, 0.9));
+  ctx.save(); ctx.strokeStyle = FG; ctx.lineWidth = 7; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  // outline: bumpy ellipse (cortex) drawn on progressively
+  const N = 240, upto = Math.floor(N * draw);
+  ctx.beginPath();
+  for (let i = 0; i <= upto; i++) {
+    const a = Math.PI * 0.62 + (i / N) * Math.PI * 2;
+    const bump = 1 + 0.045 * Math.sin(a * 9) + 0.025 * Math.sin(a * 17);
+    const x = cx + Math.cos(a) * R * 1.18 * bump, y = cy + Math.sin(a) * R * 0.8 * bump - 10 * Math.sin(a * 2);
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.stroke();
+  // cerebellum + stem
+  const d2 = prog(t, C.brain + 0.6, 0.4);
+  if (d2 > 0) {
+    ctx.globalAlpha = d2;
+    ctx.beginPath(); ctx.ellipse(cx + 210, cy + 205, 110, 62, -0.2, 0, 6.283); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx + 90, cy + 215); ctx.quadraticCurveTo(cx + 110, cy + 320, cx + 80, cy + 360); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  // glowing pathways branch and connect
+  const grow = easeOutExpo(prog(t, C.change - 0.2, 0.9));
+  if (grow > 0) {
+    const r = rng(11), nodes = [];
+    for (let i = 0; i < 34; i++) {
+      const a = r() * 6.283, d = 0.2 + Math.sqrt(r()) * 0.68;
+      nodes.push({ x: cx + Math.cos(a) * R * 1.1 * d, y: cy + Math.sin(a) * R * 0.72 * d, o: r() });
+    }
+    ctx.lineWidth = 3.5;
+    nodes.forEach((n, i) => {
+      nodes.forEach((m, j) => {
+        if (j <= i) return;
+        const dist = Math.hypot(n.x - m.x, n.y - m.y);
+        if (dist > 190) return;
+        const k = clamp((grow - Math.min(n.o, m.o) * 0.6) / 0.4);
+        if (k <= 0) return;
+        ctx.globalAlpha = 0.75;
+        ctx.beginPath(); ctx.moveTo(n.x, n.y); ctx.lineTo(lerp(n.x, m.x, k), lerp(n.y, m.y, k)); ctx.stroke();
+      });
+    });
+    ctx.fillStyle = FG;
+    nodes.forEach(n => {
+      const k = clamp((grow - n.o * 0.6) / 0.25);
+      if (k <= 0) return;
+      ctx.globalAlpha = k;
+      ctx.beginPath(); ctx.arc(n.x, n.y, 8 + 3 * Math.sin(t * 4 + n.o * 9), 0, 6.283); ctx.fill();
+    });
+  }
+  ctx.restore();
+}
+function scene4(t) {
+  const s = slam(t, C.cut4, 0.3, 1.8);
+  withScale(540, 600, s.s, () => lines(['BUT GENES ARE', 'NOT YOUR', 'DESTINY.'], 540, 470, 190, 0.98, { alpha: s.a }));
+  brain(t);
+}
+
+/* ============ SCENE 5: THE PROOF ============ */
+function scene5(t) {
+  const fillK = easeInOut(prog(t, C.fill, 1.6));
+  const r = enter(t, C.cut5 + 0.05, 0.5);
+  row(t, 1150 + r.dy * 0.5, 1, fillK, r.a);
+  if (t >= C.cnt5) {
+    const v = counter(t, C.cnt5, C.pct70, 70);
+    const land = { s: pop(t, C.pct70) };
+    const tail = slam(t, C.pct90, 0.25, 1.6);
+    const str70 = v + '', full = '70–90%';
+    const size = fitSize(full, HEAD, 330, 940);
+    setFont(size, HEAD);
+    const wFull = ctx.measureText(full).width, w70 = ctx.measureText('70').width;
+    const x0 = 540 - wFull / 2;
+    withScale(540, 560, land.s, () => drawText(str70, x0, 700, { size, align: 'left', glow: t >= C.pct70 ? 30 : 0 }));
+    if (tail.on) withScale(x0 + w70 + (wFull - w70) / 2, 560, tail.s, () =>
+      drawText('–90%', x0 + w70, 700, { size, align: 'left', alpha: tail.a, glow: 30 }));
+  }
+  const e = enter(t, C.lab5);
+  lines(['of people with depression', 'respond well to treatment.'], 540, 1300 + e.dy, 66, 1.15, { alpha: e.a });
+  drawText('American Psychiatric Association', 540, 1480, { px: 28, fam: MONO, alpha: e.a * 0.55 });
+}
+
+/* ============ SCENE 6: AGAIN AND AGAIN ============ */
+const CROWD = (() => {
+  const r = rng(23), out = [], cols = 11, rows = 9;
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++)
+    out.push({ x: 60 + i * 96 + (j % 2) * 48, y: 330 + j * 150, o: r() });
+  return out;
+})();
+function scene6(t) {
+  const span = Math.max(0.5, C.cut7 - C.proven - 0.3);
+  const lit = prog(t, C.proven, span);
+  CROWD.forEach(p => {
+    const on = clamp((lit - p.o * 0.9) / 0.1);
+    const v = Math.round(lerp(55, 255, on));
+    person(p.x, p.y, 70, `rgb(${v},${v},${v})`, on * 14);
+  });
+  // dark plate behind the words for legibility
+  ctx.save(); const g = ctx.createRadialGradient(540, 960, 60, 540, 960, 520);
+  g.addColorStop(0, 'rgba(0,0,0,0.92)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(0, 400, W, 1120); ctx.restore();
+  const st = (t0, str, x, y, px) => { const s = slam(t, t0, 0.18, 1.6); if (s.on) withScale(x, y - px * 0.35, s.s, () => drawText(str, x, y, { px, alpha: s.a, glow: 20 })); };
+  st(C.proven, 'PROVEN.', 540, 1000, 230);
+  st(C.ag1, 'AGAIN.', 540, 700, 96);
+  st(C.ag2, 'AND AGAIN.', 540, 1150, 96);
+  st(C.ag3, 'AND AGAIN.', 540, 1280, 96);
+}
+
+/* ============ SCENE 7: NEVER LOSE HOPE ============ */
+function scene7(t) {
+  if (t < C.hope) return;                               // the split-second of black
+  const a = enter(t, C.hope, 0.5).a * fadeOut(t, C.final - 0.45, 0.4);
+  lines(['NO ONE SHOULD', 'EVER LOSE HOPE.'], 540, 930, 140, 1.02, { alpha: a });
+  if (t >= C.final) {
+    const k = easeOutExpo(prog(t, C.final, 2.2));
+    // sunrise glow
+    ctx.save();
+    const g = ctx.createRadialGradient(540, 1300, 0, 540, 1300, 1100 * (0.4 + 0.6 * k));
+    g.addColorStop(0, `rgba(255,255,255,${0.75 * k})`); g.addColorStop(0.35, `rgba(255,255,255,${0.22 * k})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore();
+    particles(t, 3.5, 1.8);
+    const s = slam(t, C.final, 0.35, 2.4);
+    withScale(540, 900, s.s, () => {
+      // black text knocked out of a white glow reads best on the sunrise
+      lines(['EVERYONE', 'DESERVES TO', 'BE HAPPY.'], 540, 800, 200, 0.98, { alpha: s.a, glow: 50 });
+    });
+  }
+  const f = enter(t, C.final + 1.2, 0.6);
+  drawText('Struggling? Call or text 988', 540, 1540, { px: 40, fam: MONO, alpha: f.a });
+  drawText('Not medical advice', 540, 1590, { px: 28, fam: MONO, alpha: f.a * 0.7 });
+}
+
+/* ============ MASTER ============ */
+function progressBar(t) {
+  ctx.fillStyle = FG;
+  ctx.globalAlpha = 0.18; ctx.fillRect(0, H - 8, W, 8);
+  ctx.globalAlpha = 1; ctx.fillRect(0, H - 8, W * (t / DUR), 8);
+}
+function camera(t, t0, t1, fn) { withScale(540, 960, 1 + 0.03 * prog(t, t0, t1 - t0), fn); }
+function flash(t, t0, d = 0.12) { if (t >= t0 && t < t0 + d) { ctx.fillStyle = '#FFF'; ctx.globalAlpha = 1 - (t - t0) / d; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; } }
+function render(t) {
+  INV = t >= C.cut4 && t < C.cut5;
+  BG = INV ? '#FFF' : '#000'; FG = INV ? '#000' : '#FFF';
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+  const [dx, dy] = shake(t);
+  ctx.save(); ctx.translate(dx, dy);
+  const quiet = t >= C.cut7 && t < C.hope;             // no particles in the split-second silence
+  if (!quiet && t < C.final) particles(t);
+  if (t < C.cut2) camera(t, 0, C.cut2, () => scene1(t));
+  else if (t < C.cut3) camera(t, C.cut2, C.cut3, () => scene2(t));
+  else if (t < C.cut4) camera(t, C.cut3, C.cut4, () => scene3(t));
+  else if (t < C.cut5) camera(t, C.cut4, C.cut5, () => scene4(t));
+  else if (t < C.cut6) camera(t, C.cut5, C.cut6, () => scene5(t));
+  else if (t < C.cut7) camera(t, C.cut6, C.cut7, () => scene6(t));
+  else camera(t, C.hope, DUR, () => scene7(t));
+  ctx.restore();
+  flash(t, C.cut4, 0.1);
+  progressBar(t);
+}
+window.renderAt = render;
+
+/* ---------- playback ---------- */
+const vo = document.getElementById('vo');
+const hasAudio = vo.getAttribute('src').startsWith('data:');
+const hashT = parseFloat((location.hash.match(/t=([\d.]+)/) || [])[1]);
+let start = null, lastLoop = -1;
+function restart() { start = null; lastLoop = -1; if (hasAudio) { vo.currentTime = 0; vo.play().catch(() => {}); } }
+function frame(now) {
+  if (start === null) start = now - (isNaN(hashT) ? 0 : hashT * 1000);
+  const el = (now - start) / 1000, loop = Math.floor(el / DUR);
+  if (loop !== lastLoop) { lastLoop = loop; if (hasAudio && loop > 0) { vo.currentTime = 0; vo.play().catch(() => {}); } }
+  render(el % DUR);
+  if (!window.__capture) requestAnimationFrame(frame);
+}
+addEventListener('pointerdown', restart); addEventListener('keydown', restart);
+document.fonts.load('100px "Anton"').then(() => document.fonts.load('30px "JetBrains Mono"'))
+  .catch(() => {}).finally(() => { if (hasAudio) vo.play().catch(() => {}); requestAnimationFrame(frame); });
+</script>
+</body>
+</html>

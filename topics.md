@@ -5,3 +5,4 @@
 | 2026-09-27 | Tech/AI | AI songs are 50%+ of Deezer uploads but 1-3% of streams | videos/2026-09-27-ai-music-surge.mp4 |
 | 2026-09-28 | General facts | Your body makes ~3.8 million new cells per second (330B/day; 86% blood, 12% gut) | videos/2026-09-28-cells-per-second.mp4 |
 | 2026-09-28 | Tech/AI (story) | Anthropic CEO Dario Amodei co-invented RLHF and helped build GPT-2/3, left OpenAI Dec 2020; ChatGPT (RLHF) launched 23 months later | videos/2026-09-28-anthropic-ceo-chatgpt.mp4 |
+| 2026-09-29 | General/Health | Born to be happy? Genes, depression (51M, Gallup 2026) and recovery (70-90%, APA) | videos/2026-09-29-born-to-be-happy.mp4 |
