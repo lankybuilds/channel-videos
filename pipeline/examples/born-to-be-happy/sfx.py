@@ -89,25 +89,8 @@ def build_events(C):
     ev = []
     add = lambda at, s: ev.append((at, s))
     D = C['dur']
-    # ---------- MUSIC ----------
-    # tense first half: low heartbeat pulse + dark pad, until the 51 million lands
-    tense_end = C['mil'] + 0.3
-    add(0.0, heartbeat_pulse(tense_end, 76, 0.55))
-    add(0.0, pad(A_MIN, tense_end + 0.6, 0.22, 1400, a=0.05, r=0.9))
-    # saddest moment: almost silence, one faint high tone
-    add(C['mil'] + 0.4, drone_high(C['cut4'] - C['mil'] - 0.3, 0.035))
-    # the turn: music kicks back stronger (major, faster pulse)
-    b = C['cut4']
-    add(b, heartbeat_pulse(C['cut7'] - b, 100, 0.5, f=55))
-    add(b, pad(F_MAJ, C['cut5'] - b + 0.8, 0.26, 2200, a=0.02, r=0.8))
-    add(C['cut5'], pad(C_MAJ, C['cut6'] - C['cut5'] + 0.8, 0.28, 2800, a=0.3, r=0.8))
-    add(C['cut6'], pad(G_MAJ, C['cut7'] - C['cut6'] + 0.2, 0.3, 3200, a=0.3, r=0.25))
-    ev += arp(C['cut5'] + 0.2, C['cut7'] - C['cut5'] - 0.4, [523.25, 659.25, 783.99, 659.25], 0.3, 0.12)
-    # split-second silence, then hope pad and the final swell to the peak
-    add(C['hope'], pad(F_MAJ, C['final'] - C['hope'] + 0.6, 0.24, 2400, a=0.4, r=0.6))
+    # music removed at the owner's request: sound effects only
     add(C['final'] - 1.0, riser(1.0, 0.22))
-    add(C['final'], pad([130.81, 196.0, 261.63, 329.63, 392.0], D - C['final'], 0.42, 4200, a=0.25, r=1.8))
-    add(C['final'], shimmer(D - C['final'], 0.12))
     # ---------- SFX ----------
     for i in range(6):                                   # counter ticks
         add(C['cnt2'] + i * (C['half'] - C['cnt2']) / 6, tick(0.12))
