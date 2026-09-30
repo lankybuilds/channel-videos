@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ADHD or Autism</title>
+<style>
+  @font-face { font-family: "Anton"; src: url(data:font/woff2;base64,/*ANTON*/) format("woff2"); font-display: block; }
+  @font-face { font-family: "JetBrains Mono"; src: url(data:font/woff2;base64,/*MONO*/) format("woff2"); font-display: block; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; cursor: none; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<audio id="vo" preload="auto" src="/*AUDIO*/"></audio>
+<script>
+/* ============================================================
+   ADHD OR AUTISM? THE ONLY WAY TO KNOW. vertical kinetic type (1080x1920)
+   One master timeline. Every cue in C comes from the voiceover word times.
+   Click / tap / any key restarts from 0 with sound. #t=12 jumps.
+   ============================================================ */
+const C = /*CUES*/;
+const W = 1080, H = 1920, DUR = C.dur;
+const cv = document.getElementById('c'); let ctx = cv.getContext('2d');
+cv.width = W; cv.height = H;
+function fitCanvas() {
+  const s = Math.min(innerWidth / W, innerHeight / H);
+  cv.style.width = (W * s) + 'px'; cv.style.height = (H * s) + 'px';
+}
+addEventListener('resize', fitCanvas); fitCanvas();
+
+const HEAD = '"Anton", Impact, "Arial Narrow", sans-serif';
+const MONO = '"JetBrains Mono", ui-monospace, Menlo, monospace';
+let FG = '#FFF', BG = '#000', INV = false;
+
+/* ---------- helpers ---------- */
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const prog = (t, t0, d) => clamp((t - t0) / d);
+const easeOutExpo = x => x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const easeInOut = x => x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+const lerp = (a, b, k) => a + (b - a) * k;
+function rng(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
+
+function setFont(px, fam) { ctx.font = `${px}px ${fam}`; }
+function fitSize(str, fam, px, maxW) { setFont(px, fam); const w = ctx.measureText(str).width; return w > maxW ? px * maxW / w : px; }
+function drawText(str, x, y, o = {}) {
+  const { px = 100, fam = HEAD, align = 'center', alpha = 1, maxW = 940, color = FG, size = null, glow = 0 } = o;
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  setFont(size || fitSize(str, fam, px, maxW), fam);
+  ctx.textAlign = align; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = color;
+  if (glow) { ctx.shadowColor = color; ctx.shadowBlur = glow; }
+  ctx.fillText(str, x, y);
+  ctx.restore();
+}
+function lines(arr, x, y0, px, gap, o = {}) {
+  const size = Math.min(...arr.map(s => fitSize(s, o.fam || HEAD, px, o.maxW || 940)));
+  arr.forEach((s, i) => drawText(s, x, y0 + i * size * gap, { ...o, size }));
+  return size;
+}
+function enter(t, t0, d = 0.4) { const p = prog(t, t0, d), e = easeOutExpo(p); return { a: clamp(p * 3), dy: (1 - e) * 40, on: t >= t0 }; }
+function snap(t, t0, d = 0.28, from = 1.35) { const p = prog(t, t0, d); return { s: 1 + (from - 1) * (1 - easeOutExpo(p)), a: clamp((t - t0) / 0.05), on: t >= t0 }; }
+function withScale(cx, cy, s, fn) { ctx.save(); ctx.translate(cx, cy); ctx.scale(s, s); ctx.translate(-cx, -cy); fn(); ctx.restore(); }
+function pop(t, t0, amt = 0.18, d = 0.3) { return t < t0 ? 1 : 1 + amt * (1 - easeOutExpo(prog(t, t0, d))); }
+function counter(t, t0, t1, to) { return Math.round(to * easeOutExpo(prog(t, t0, Math.max(0.2, t1 - t0)))); }
+
+/* screen shake on the big hits: each "≠", 52%, YOU DON'T. */
+const HITS = [[C.ne1, 10], [C.ne2, 10], [C.p52, 11], [C.dont, 18]];
+function shake(t) {
+  let dx = 0, dy = 0;
+  for (const [s, amp] of HITS) if (t >= s && t < s + 0.36) {
+    const a = amp * Math.pow(1 - (t - s) / 0.36, 2);
+    dx += a * Math.sin(t * 190); dy += a * Math.cos(t * 233);
+  }
+  return [dx, dy];
+}
+
+/* ---------- ambient: drifting particles + film grain ---------- */
+const PARTS = (() => { const r = rng(7); return Array.from({ length: 60 }, () => ({ x: r() * W, y: r() * H, s: 1 + r() * 3, v: 8 + r() * 22, ph: r() * 6.28, a: 0.12 + r() * 0.4 })); })();
+function particles(t, speed = 1, dim = 1) {
+  ctx.save(); ctx.fillStyle = FG;
+  for (const p of PARTS) {
+    const y = ((p.y - t * p.v * speed) % H + H) % H;
+    const x = p.x + Math.sin(t * 0.4 + p.ph) * 18;
+    ctx.globalAlpha = p.a * (0.6 + 0.4 * Math.sin(t * 1.3 + p.ph)) * dim * (INV ? 0.45 : 1);
+    ctx.beginPath(); ctx.arc(x, y, p.s, 0, 6.283); ctx.fill();
+  }
+  ctx.restore();
+}
+function grain(t, amt = 1) {
+  const r = rng(Math.floor(t * 30) * 7919 + 13);
+  ctx.save(); ctx.fillStyle = FG;
+  for (let i = 0; i < 140 * amt; i++) { ctx.globalAlpha = 0.05 + r() * 0.08; ctx.fillRect(r() * W, r() * H, 2, 2); }
+  ctx.restore();
+}
+
+/* ---------- glitch: horizontal slice displacement + static bars ---------- */
+function glitch(t, strength = 1, seedExtra = 0) {
+  if (strength <= 0) return;
+  const r = rng(Math.floor(t * 30) * 131 + seedExtra);
+  const n = Math.round(3 + 5 * strength);
+  for (let i = 0; i < n; i++) {
+    const y = Math.floor(r() * H), h = Math.floor(8 + r() * 60 * strength), off = (r() - 0.5) * 90 * strength;
+    ctx.drawImage(cv, 0, y, W, h, off, y, W, h);
+  }
+  ctx.save(); ctx.fillStyle = FG;
+  for (let i = 0; i < n; i++) { ctx.globalAlpha = 0.06 + r() * 0.18 * strength; ctx.fillRect(0, r() * H, W, 1 + r() * 4); }
+  ctx.restore();
+}
+/* short glitch bursts at every scene cut, plus the question mark flicker */
+const CUTS = [0, C.cut2, C.cut3, C.cut4, C.cut5, C.cut6, C.cut7];
+function cutGlitch(t) { let g = 0; for (const c of CUTS) if (t >= c && t < c + 0.16) g = Math.max(g, 1 - (t - c) / 0.16); return g; }
+
+/* ---------- the "≠" stamp (drawn, so it never depends on a font glyph) ---------- */
+function neq(cx, cy, size, alpha = 1) {
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.fillStyle = FG; ctx.shadowColor = FG; ctx.shadowBlur = 24;
+  const w = size, th = size * 0.14, gap = size * 0.2;
+  ctx.fillRect(cx - w / 2, cy - gap - th / 2, w, th);
+  ctx.fillRect(cx - w / 2, cy + gap - th / 2, w, th);
+  ctx.translate(cx, cy); ctx.rotate(-0.95);
+  ctx.fillRect(-size * 0.62, -th / 2, size * 1.24, th);
+  ctx.restore();
+}
+
+/* ---------- line figures ---------- */
+function stick(x, y, h, pose = 0, lw = 8) {       // (x,y) = feet centre; pose animates the arms
+  const hr = h * 0.12, neck = y - h + hr * 2, hip = y - h * 0.42;
+  ctx.save(); ctx.strokeStyle = FG; ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.arc(x, y - h + hr, hr, 0, 6.283); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, neck); ctx.lineTo(x, hip); ctx.stroke();
+  const sh = neck + h * 0.08, al = h * 0.3;
+  ctx.beginPath();
+  ctx.moveTo(x, sh); ctx.lineTo(x - al * Math.cos(0.5 + pose), sh - al * Math.sin(0.5 + pose) * 1.2);
+  ctx.moveTo(x, sh); ctx.lineTo(x + al * Math.cos(0.5 - pose), sh - al * Math.sin(0.5 - pose) * 1.2);
+  ctx.moveTo(x, hip); ctx.lineTo(x - h * 0.15, y); ctx.moveTo(x, hip); ctx.lineTo(x + h * 0.15, y);
+  ctx.stroke(); ctx.restore();
+}
+function bubble(x, y, str, px, alpha = 1) {       // speech bubble with tail pointing down-left
+  ctx.save(); ctx.globalAlpha *= alpha;
+  setFont(px, HEAD); const tw = ctx.measureText(str).width, bw = tw + 60, bh = px * 1.45;
+  ctx.strokeStyle = FG; ctx.lineWidth = 6; ctx.lineJoin = 'round';
+  const x0 = x - bw / 2, y0 = y - bh / 2, r = 26;
+  ctx.beginPath();
+  ctx.moveTo(x0 + r, y0); ctx.lineTo(x0 + bw - r, y0); ctx.quadraticCurveTo(x0 + bw, y0, x0 + bw, y0 + r);
+  ctx.lineTo(x0 + bw, y0 + bh - r); ctx.quadraticCurveTo(x0 + bw, y0 + bh, x0 + bw - r, y0 + bh);
+  ctx.lineTo(x0 + 90, y0 + bh); ctx.lineTo(x0 + 40, y0 + bh + 50); ctx.lineTo(x0 + 55, y0 + bh);
+  ctx.lineTo(x0 + r, y0 + bh); ctx.quadraticCurveTo(x0, y0 + bh, x0, y0 + bh - r);
+  ctx.lineTo(x0, y0 + r); ctx.quadraticCurveTo(x0, y0, x0 + r, y0); ctx.closePath(); ctx.stroke();
+  drawText(str, x, y + px * 0.36, { px, size: px });
+  ctx.restore();
+}
+
+/* slash + shatter: draws the "myth" panel through fn(), then cuts it in shards that fly off */
+const SHARDS = (() => { const r = rng(41), out = []; for (let j = 0; j < 7; j++) for (let i = 0; i < 9; i++) out.push({ i, j, vx: (r() - 0.5) * 900, vy: -200 + r() * 900, rot: (r() - 0.5) * 5, d: r() * 0.12 }); return out; })();
+const PANEL = { x: 40, y: 330, w: 1000, h: 580 };
+let panelCanvas = null;
+function mythPanel(t, tSlash, fn) {
+  const P = PANEL;
+  if (t < tSlash + 0.18) { fn(); }
+  // the slash: a thick white line drawn across in 0.18 s
+  const sp = prog(t, tSlash, 0.18);
+  if (t >= tSlash && t < tSlash + 0.18) {
+    ctx.save(); ctx.strokeStyle = FG; ctx.lineWidth = 22; ctx.lineCap = 'round'; ctx.shadowColor = FG; ctx.shadowBlur = 30;
+    ctx.beginPath(); ctx.moveTo(P.x + 40, P.y + P.h - 40); ctx.lineTo(lerp(P.x + 40, P.x + P.w - 40, sp), lerp(P.y + P.h - 40, P.y + 60, sp)); ctx.stroke();
+    ctx.restore();
+  }
+  if (t >= tSlash + 0.18) {
+    // snapshot the panel (frozen at the slash moment) with the slash on it
+    if (!panelCanvas) { panelCanvas = document.createElement('canvas'); panelCanvas.width = P.w; panelCanvas.height = P.h; }
+    const pc = panelCanvas.getContext('2d');
+    pc.setTransform(1, 0, 0, 1, 0, 0); pc.clearRect(0, 0, P.w, P.h);
+    pc.translate(-P.x, -P.y);
+    swapCtx(pc, () => fn(tSlash + 0.17));
+    pc.strokeStyle = FG; pc.lineWidth = 22; pc.lineCap = 'round';
+    pc.beginPath(); pc.moveTo(P.x + 40, P.y + P.h - 40); pc.lineTo(P.x + P.w - 40, P.y + 60); pc.stroke();
+    const k = prog(t, tSlash + 0.18, 0.5);
+    if (k >= 1) return;
+    const sw = P.w / 9, sh = P.h / 7;
+    for (const s of SHARDS) {
+      const kk = clamp((k - s.d) / (1 - s.d)), e = easeOutExpo(kk);
+      ctx.save();
+      ctx.globalAlpha = 1 - kk;
+      ctx.translate(P.x + (s.i + 0.5) * sw + s.vx * e * 0.6, P.y + (s.j + 0.5) * sh + s.vy * kk * kk);
+      ctx.rotate(s.rot * e);
+      ctx.drawImage(panelCanvas, s.i * sw, s.j * sh, sw, sh, -sw / 2, -sh / 2, sw, sh);
+      ctx.restore();
+    }
+  }
+}
+function swapCtx(tmp, fn) { const real = ctx; ctx = tmp; try { fn(); } finally { ctx = real; } }
+
+/* ---------- reality list (one item at a time) ---------- */
+function realityList(t, heading, items, times, tHead) {
+  const h = enter(t, tHead, 0.45);
+  drawText(heading, 540, 520 + h.dy, { px: 96, alpha: h.a, glow: 18 });
+  ctx.save(); ctx.globalAlpha = h.a * 0.7; ctx.fillStyle = FG; ctx.fillRect(540 - 380 * easeOutExpo(prog(t, tHead, 0.6)), 560, 760 * easeOutExpo(prog(t, tHead, 0.6)), 4); ctx.restore();
+  let y = 720;
+  items.forEach((it, i) => {
+    const e = enter(t, times[i], 0.4), arr = Array.isArray(it) ? it : [it];
+    drawText('0' + (i + 1), 110, y + e.dy, { px: 34, fam: MONO, align: 'left', alpha: e.a * 0.6 });
+    const size = Math.min(...arr.map(s => fitSize(s, HEAD, 74, 820)));
+    arr.forEach((s, k) => drawText(s, 190, y + e.dy + k * size * 1.12, { size, align: 'left', alpha: e.a }));
+    y += size * 1.12 * arr.length + 70;
+  });
+}
+
+/* ============ SCENE 1: THE HOOK ============ */
+function qmark(t) {
+  const r = rng(Math.floor(t * 30) + 5);
+  const flick = r() < 0.18 ? 0.35 + r() * 0.4 : 1;
+  const jx = r() < 0.25 ? (r() - 0.5) * 30 : 0;
+  const s = 1 + 0.04 * Math.sin(t * 5);
+  withScale(540, 560, s, () => drawText('?', 540 + jx, 740, { px: 440, alpha: flick * 0.9, glow: 45 }));
+}
+function scene1(t) {
+  qmark(t);
+  const a = snap(t, 0, 0.3, 1.25);
+  withScale(540, 920, a.s, () => drawText("CAN'T FOCUS?", 540, 960, { px: 120, alpha: 1 }));
+  const b = snap(t, C.s1b);
+  if (b.on) withScale(540, 1060, b.s, () => drawText('SOCIALLY AWKWARD?', 540, 1100, { px: 120, alpha: b.a }));
+  const c = snap(t, C.s1c, 0.32, 1.6);
+  if (c.on) withScale(540, 1260, c.s, () => lines(['DO YOU HAVE', 'ADHD OR AUTISM?'], 540, 1260, 150, 1.02, { alpha: c.a, glow: 20 }));
+  const d = enter(t, C.s1d, 0.6);
+  lines(["Stay till the end.", "You'll know the only way to find out."], 540, 1530 + d.dy, 36, 1.5, { fam: MONO, alpha: d.a * 0.85 });
+}
+
+/* ============ SCENE 2: THE MYTH ============ */
+function mythLine(t, tIn, tNe, left, right, y) {
+  const e = enter(t, tIn, 0.4);
+  if (!e.on) return;
+  const size = fitSize('SOCIALLY AWKWARD', HEAD, 130, 820);
+  drawText(left, 540, y + e.dy, { size, alpha: e.a });
+  const s = snap(t, tNe, 0.26, 2.6);
+  if (s.on) {
+    withScale(540, y + 120, s.s, () => neq(540, y + 120, 150, s.a));
+    withScale(540, y + 290, s.s * 0.5 + 0.5, () => drawText(right, 540, y + 340, { size: size * 1.25, alpha: s.a, glow: 30 }));
+  }
+}
+function scene2(t) {
+  mythLine(t, C.m1, C.ne1, "CAN'T FOCUS", 'ADHD', 420);
+  mythLine(t, C.m2, C.ne2, 'SOCIALLY AWKWARD', 'AUTISM', 960);
+  const e = enter(t, C.m3, 0.5);
+  drawText('Everyone has these traits sometimes.', 540, 1500 + e.dy, { px: 40, fam: MONO, alpha: e.a * 0.85 });
+}
+
+/* ============ SCENE 3: THE PROBLEM ============ */
+function phone(t) {
+  const e = enter(t, C.cut3, 0.45);
+  const x = 540 - 160, y = 230 + e.dy, w = 320, h = 560, r = 42;
+  ctx.save(); ctx.globalAlpha = e.a;
+  ctx.strokeStyle = FG; ctx.lineWidth = 7;
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.stroke();
+  ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(540 - 40, y + 26); ctx.lineTo(540 + 40, y + 26); ctx.stroke();
+  // endless feed scrolling fast inside the screen
+  ctx.save(); ctx.beginPath(); ctx.roundRect(x + 18, y + 50, w - 36, h - 90, 16); ctx.clip();
+  const tileH = 190, gap = 16, off = ((t - C.cut3) * 900) % (tileH + gap);
+  for (let k = -1; k < 5; k++) {
+    const ty = y + 50 + k * (tileH + gap) - off;
+    const r2 = rng(Math.floor((t - C.cut3) * 900 / (tileH + gap)) + k + 99);
+    ctx.globalAlpha = e.a * 0.9; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.roundRect(x + 32, ty, w - 64, tileH, 12); ctx.stroke();
+    // play triangle + caption bars
+    ctx.fillStyle = FG; ctx.globalAlpha = e.a * 0.8;
+    const cx = 540, cy = ty + tileH * 0.42;
+    ctx.beginPath(); ctx.moveTo(cx - 18, cy - 22); ctx.lineTo(cx + 24, cy); ctx.lineTo(cx - 18, cy + 22); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = e.a * 0.4;
+    ctx.fillRect(x + 50, ty + tileH - 44, (w - 100) * (0.5 + r2() * 0.5), 10);
+    ctx.fillRect(x + 50, ty + tileH - 26, (w - 100) * (0.3 + r2() * 0.4), 8);
+  }
+  ctx.restore(); ctx.restore();
+}
+function scene3(t) {
+  phone(t);
+  if (t >= C.c52) {
+    const v = counter(t, C.c52, C.p52, 52);
+    withScale(540, 980, pop(t, C.p52, 0.22), () => drawText(v + '%', 540, 1060, { px: 250, glow: t >= C.p52 ? 40 : 0 }));
+  }
+  const l = enter(t, C.p52 + 0.1, 0.4);
+  drawText('of top ADHD TikToks were misleading.', 540, 1165 + l.dy, { px: 58, maxW: 940, alpha: l.a });
+  if (t >= C.c27) {
+    const v = counter(t, C.c27, C.p27, 27);
+    const e = enter(t, C.c27, 0.3);
+    ctx.save(); ctx.globalAlpha = e.a;
+    const s = pop(t, C.p27, 0.15);
+    withScale(540, 1320, s, () => lines(['Only ' + v + '% of autism', 'TikToks were accurate.'], 540, 1340 + e.dy, 70, 1.12, { alpha: 1 }));
+    ctx.restore();
+  }
+  const src = enter(t, C.c27 + 0.4, 0.5);
+  drawText('Can. J. Psychiatry 2022 · J. Autism Dev. Disord. 2023', 540, 1560, { px: 24, fam: MONO, alpha: src.a * 0.55 });
+}
+
+/* ============ SCENE 4: ADHD, THE REALITY ============ */
+function adhdMyth(t) {
+  drawText('WHAT SOCIAL MEDIA SHOWS', 540, 400, { px: 34, fam: MONO, alpha: 0.75 });
+  const bounce = Math.abs(Math.sin((t - C.cut4) * 7)) * 70;
+  const tilt = Math.sin((t - C.cut4) * 7) * 0.12;
+  ctx.save(); ctx.translate(430, 830 - bounce); ctx.rotate(tilt); ctx.translate(-430, -(830 - bounce));
+  stick(430, 830 - bounce, 300, 0.9 + 0.5 * Math.sin((t - C.cut4) * 14), 9);
+  ctx.restore();
+  const b = snap(t, C.cut4 + 0.35, 0.25, 1.5);
+  if (b.on) withScale(700, 540, b.s, () => bubble(720, 540, 'SQUIRREL!', 64, b.a));
+}
+function scene4(t) {
+  withCtx(() => mythPanel(t, C.slash4, tt => adhdMyth(tt === undefined ? t : tt)));
+  if (t >= C.slash4 + 0.3) realityList(t, 'WHAT ADHD ACTUALLY IS:', [
+    'Time blindness',
+    ["Can't start tasks,", 'even ones you want to do'],
+    'Intense emotional overwhelm',
+    ['Present since childhood,', 'in every part of life'],
+  ], [C.a1, C.a2, C.a3, C.a4], C.slash4 + 0.35);
+}
+
+/* ============ SCENE 5: AUTISM, THE REALITY ============ */
+const EQS = ['E = mc²', '∫ f(x) dx', 'π ≈ 3.14159', 'a² + b² = c²', 'Σ 1/n²', 'e^iπ + 1 = 0'];
+function autismMyth(t) {
+  drawText('WHAT SOCIAL MEDIA SHOWS', 540, 400, { px: 34, fam: MONO, alpha: 0.75 });
+  const dt = t - C.cut5;
+  EQS.forEach((q, i) => {
+    const a = i / EQS.length * 6.283 + dt * 0.6;
+    drawText(q, 290 + Math.cos(a) * 210, 700 + Math.sin(a) * 120, { px: 26, fam: MONO, alpha: 0.6 });
+  });
+  stick(290, 860, 240, 0.2, 8);
+  drawText('GENIUS?', 290, 520, { px: 64 });
+  const b = enter(t, C.cut5 + 0.5, 0.4);
+  ctx.save(); ctx.globalAlpha = b.a;
+  ctx.save(); ctx.translate(790, 860); ctx.rotate(-0.06 + 0.03 * Math.sin(dt * 2)); ctx.translate(-790, -860);
+  stick(790, 860 + b.dy * 0.3, 240, -0.9, 8);   // arms down, hunched
+  ctx.restore();
+  drawText('JUST AWKWARD?', 790, 520, { px: 64 });
+  ctx.restore();
+}
+function scene5(t) {
+  withCtx(() => mythPanel(t, C.slash5, tt => autismMyth(tt === undefined ? t : tt)));
+  if (t >= C.slash5 + 0.3) realityList(t, 'WHAT AUTISM ACTUALLY IS:', [
+    ['Sensory overload:', 'sound, light, touch'],
+    'Masking all day to fit in',
+    'Burnout and shutdowns',
+    ['A huge spectrum,', 'no two people alike'],
+  ], [C.b1, C.b2, C.b3, C.b4], C.slash5 + 0.35);
+}
+
+/* ============ SCENE 6: THE WEIGHT ============ */
+function stat(t, t0, t1, y, fmt, label, px = 200) {
+  if (t < t0) return;
+  const k = easeOutExpo(prog(t, t0, Math.max(0.3, t1 - t0)));
+  const s = pop(t, t1, 0.12, 0.6);
+  withScale(540, y - px * 0.35, s, () => drawText(fmt(k), 540, y, { px, glow: t >= t1 ? 26 : 0 }));
+  const e = enter(t, t1 + 0.05, 0.5);
+  lines(label, 540, y + 78 + e.dy, 48, 1.2, { alpha: e.a * 0.9, maxW: 900 });
+}
+function scene6(t) {
+  stat(t, C.c42, C.p42, 500, k => Math.round(42 * k) + '%', ['of autistic adults have had', 'an anxiety disorder']);
+  stat(t, C.c37, C.p37, 890, k => Math.round(37 * k) + '%', ['have had depression']);
+  stat(t, C.c79, C.p79, 1240, k => k < 1 ? '~' + Math.max(1, Math.round(9 * k)) + ' YEARS' : '~7–9 YEARS', ['shorter lives on average for UK', 'adults diagnosed with ADHD'], 170);
+  const src = enter(t, C.c79 + 0.6, 0.6);
+  drawText('Psychol. Med. 2019 · Br. J. Psychiatry 2025', 540, 1560, { px: 24, fam: MONO, alpha: src.a * 0.55 });
+}
+
+/* ============ SCENE 7: THE ANSWER (the one white scene) ============ */
+function scene7(t) {
+  if (t < C.dont) {
+    const e = enter(t, C.cut7, 0.45);
+    lines(['SO HOW DO YOU KNOW', 'IF YOU HAVE IT?'], 540, 900 + e.dy, 130, 1.05, { alpha: e.a });
+    return;
+  }
+  const s = snap(t, C.dont, 0.34, 3.0);
+  withScale(540, 620, s.s, () => drawText("YOU DON'T.", 540, 700, { px: 250, alpha: s.a }));
+  const a = enter(t, C.n1, 0.4);
+  drawText('Not from TikTok. Not from a quiz.', 540, 930 + a.dy, { px: 64, alpha: a.a });
+  const b = snap(t, C.pro, 0.3, 1.5);
+  if (b.on) withScale(540, 1120, b.s, () => lines(['ONLY A PROFESSIONAL', 'CAN TELL YOU.'], 540, 1130, 118, 1.05, { alpha: b.a }));
+  const c = enter(t, C.fin, 0.45);
+  drawText('Get tested before you self-diagnose.', 540, 1420 + c.dy, { px: 56, alpha: c.a });
+  const d = enter(t, C.dont + 0.4, 0.5);
+  drawText('Not medical advice.', 540, 1590, { px: 26, fam: MONO, alpha: d.a * 0.7 });
+}
+
+/* ============ MASTER ============ */
+function withCtx(fn) { fn(); }
+function progressBar(t) {
+  ctx.fillStyle = FG;
+  ctx.globalAlpha = 0.18; ctx.fillRect(0, H - 8, W, 8);
+  ctx.globalAlpha = 1; ctx.fillRect(0, H - 8, W * (t / DUR), 8);
+}
+function teaser(t) {   // keeps the promise alive until the answer
+  if (t < C.cut2 || t >= C.cut7) return;
+  const a = enter(t, C.cut2 + 0.4, 0.6).a * (0.42 + 0.12 * Math.sin(t * 3));
+  drawText('THE ONLY WAY TO KNOW: AT THE END', 540, 1605, { px: 24, fam: MONO, alpha: a });
+}
+function camera(t, t0, t1, fn) { withScale(540, 960, 1 + 0.035 * prog(t, t0, t1 - t0), fn); }
+function flash(t, t0, d = 0.14) { if (t >= t0 && t < t0 + d) { ctx.fillStyle = '#FFF'; ctx.globalAlpha = 1 - (t - t0) / d; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; } }
+function render(t) {
+  INV = t >= C.dont;
+  BG = INV ? '#FFF' : '#000'; FG = INV ? '#000' : '#FFF';
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.shadowBlur = 0;
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+  const [dx, dy] = shake(t);
+  ctx.save(); ctx.translate(dx, dy);
+  const heavy = t >= C.cut6 && t < C.cut7;
+  const beat = t >= C.cut7 && t < C.dont;               // the silent beat before the answer
+  if (!beat) particles(t, heavy ? 0.25 : 1, heavy ? 0.5 : 1);
+  if (t < C.cut2) camera(t, 0, C.cut2, () => scene1(t));
+  else if (t < C.cut3) camera(t, C.cut2, C.cut3, () => scene2(t));
+  else if (t < C.cut4) camera(t, C.cut3, C.cut4, () => scene3(t));
+  else if (t < C.cut5) camera(t, C.cut4, C.cut5, () => scene4(t));
+  else if (t < C.cut6) camera(t, C.cut5, C.cut6, () => scene5(t));
+  else if (t < C.cut7) camera(t, C.cut6, C.cut7, () => scene6(t));
+  else camera(t, C.dont > t ? C.cut7 : C.dont, DUR, () => scene7(t));
+  teaser(t);
+  ctx.restore();
+  grain(t, INV ? 0.6 : 1);
+  // glitch: bursts at cuts, a constant flicker on the hook, a hard one at the flip
+  let g = cutGlitch(t);
+  if (t < C.cut2) { const r = rng(Math.floor(t * 30) + 3); if (r() < 0.22) g = Math.max(g, 0.35); }
+  if (t >= C.dont && t < C.dont + 0.2) g = Math.max(g, 1.2 * (1 - (t - C.dont) / 0.2));
+  glitch(t, g);
+  flash(t, C.dont, 0.12);
+  progressBar(t);
+}
+window.renderAt = render;
+
+/* ---------- playback ---------- */
+const vo = document.getElementById('vo');
+const hasAudio = vo.getAttribute('src').startsWith('data:');
+const hashT = parseFloat((location.hash.match(/t=([\d.]+)/) || [])[1]);
+let start = null, lastLoop = -1;
+function restart() { start = null; lastLoop = -1; if (hasAudio) { vo.currentTime = 0; vo.play().catch(() => {}); } }
+function frame(now) {
+  if (start === null) start = now - (isNaN(hashT) ? 0 : hashT * 1000);
+  const el = (now - start) / 1000, loop = Math.floor(el / DUR);
+  if (loop !== lastLoop) { lastLoop = loop; if (hasAudio && loop > 0) { vo.currentTime = 0; vo.play().catch(() => {}); } }
+  render(el % DUR);
+  if (!window.__capture) requestAnimationFrame(frame);
+}
+addEventListener('pointerdown', restart); addEventListener('keydown', restart);
+document.fonts.load('100px "Anton"').then(() => document.fonts.load('30px "JetBrains Mono"'))
+  .catch(() => {}).finally(() => { if (hasAudio) vo.play().catch(() => {}); requestAnimationFrame(frame); });
+</script>
+</body>
+</html>
