@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ADHD or Autism</title>
 <style>
-  @font-face { font-family: "Anton"; src: url(data:font/woff2;base64,/*ANTON*/) format("woff2"); font-display: block; }
-  @font-face { font-family: "JetBrains Mono"; src: url(data:font/woff2;base64,/*MONO*/) format("woff2"); font-display: block; }
+  @font-face { font-family: "HelvBold"; src: url(data:font/otf;base64,/*HELVB*/) format("opentype"); font-display: block; }
+  @font-face { font-family: "HelvReg"; src: url(data:font/otf;base64,/*HELVR*/) format("opentype"); font-display: block; }
   html, body { margin: 0; height: 100%; background: #000; overflow: hidden; cursor: none; }
   body { display: flex; align-items: center; justify-content: center; }
   canvas { display: block; }
@@ -31,8 +31,8 @@ function fitCanvas() {
 }
 addEventListener('resize', fitCanvas); fitCanvas();
 
-const HEAD = '"Anton", Impact, "Arial Narrow", sans-serif';
-const MONO = '"JetBrains Mono", ui-monospace, Menlo, monospace';
+const HEAD = '"HelvBold", Helvetica, Arial, sans-serif';   // Helvetica (TeX Gyre Heros, a free Helvetica clone)
+const MONO = '"HelvReg", Helvetica, Arial, sans-serif';
 let FG = '#FFF', BG = '#000', INV = false;
 
 /* ---------- helpers ---------- */
@@ -52,7 +52,6 @@ function drawText(str, x, y, o = {}) {
   ctx.globalAlpha *= alpha;
   setFont(size || fitSize(str, fam, px, maxW), fam);
   ctx.textAlign = align; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = color;
-  if (glow) { ctx.shadowColor = color; ctx.shadowBlur = glow; }
   ctx.fillText(str, x, y);
   ctx.restore();
 }
@@ -116,7 +115,7 @@ function cutGlitch(t) { let g = 0; for (const c of CUTS) if (t >= c && t < c + 0
 
 /* ---------- the "≠" stamp (drawn, so it never depends on a font glyph) ---------- */
 function neq(cx, cy, size, alpha = 1) {
-  ctx.save(); ctx.globalAlpha *= alpha; ctx.fillStyle = FG; ctx.shadowColor = FG; ctx.shadowBlur = 24;
+  ctx.save(); ctx.globalAlpha *= alpha; ctx.fillStyle = FG;
   const w = size, th = size * 0.14, gap = size * 0.2;
   ctx.fillRect(cx - w / 2, cy - gap - th / 2, w, th);
   ctx.fillRect(cx - w / 2, cy + gap - th / 2, w, th);
@@ -163,7 +162,7 @@ function mythPanel(t, tSlash, fn) {
   // the slash: a thick white line drawn across in 0.18 s
   const sp = prog(t, tSlash, 0.18);
   if (t >= tSlash && t < tSlash + 0.18) {
-    ctx.save(); ctx.strokeStyle = FG; ctx.lineWidth = 22; ctx.lineCap = 'round'; ctx.shadowColor = FG; ctx.shadowBlur = 30;
+    ctx.save(); ctx.strokeStyle = FG; ctx.lineWidth = 22; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(P.x + 40, P.y + P.h - 40); ctx.lineTo(lerp(P.x + 40, P.x + P.w - 40, sp), lerp(P.y + P.h - 40, P.y + 60, sp)); ctx.stroke();
     ctx.restore();
   }
@@ -195,7 +194,7 @@ function swapCtx(tmp, fn) { const real = ctx; ctx = tmp; try { fn(); } finally {
 /* ---------- reality list (one item at a time) ---------- */
 function realityList(t, heading, items, times, tHead) {
   const h = enter(t, tHead, 0.45);
-  drawText(heading, 540, 520 + h.dy, { px: 96, alpha: h.a, glow: 18 });
+  drawText(heading, 540, 520 + h.dy, { px: 96, alpha: h.a});
   ctx.save(); ctx.globalAlpha = h.a * 0.7; ctx.fillStyle = FG; ctx.fillRect(540 - 380 * easeOutExpo(prog(t, tHead, 0.6)), 560, 760 * easeOutExpo(prog(t, tHead, 0.6)), 4); ctx.restore();
   let y = 720;
   items.forEach((it, i) => {
@@ -213,16 +212,17 @@ function qmark(t) {
   const flick = r() < 0.18 ? 0.35 + r() * 0.4 : 1;
   const jx = r() < 0.25 ? (r() - 0.5) * 30 : 0;
   const s = 1 + 0.04 * Math.sin(t * 5);
-  withScale(540, 560, s, () => drawText('?', 540 + jx, 740, { px: 440, alpha: flick * 0.9, glow: 45 }));
+  withScale(540, 560, s, () => drawText('?', 540 + jx, 740, { px: 440, alpha: flick * 0.9}));
 }
 function scene1(t) {
   qmark(t);
   const a = snap(t, 0, 0.3, 1.25);
-  withScale(540, 920, a.s, () => drawText("CAN'T FOCUS?", 540, 960, { px: 120, alpha: 1 }));
+  const s1 = fitSize('SOCIALLY AWKWARD?', HEAD, 120, 940);
+  withScale(540, 920, a.s, () => drawText("CAN'T FOCUS?", 540, 960, { size: s1, alpha: 1 }));
   const b = snap(t, C.s1b);
-  if (b.on) withScale(540, 1060, b.s, () => drawText('SOCIALLY AWKWARD?', 540, 1100, { px: 120, alpha: b.a }));
+  if (b.on) withScale(540, 1060, b.s, () => drawText('SOCIALLY AWKWARD?', 540, 1100, { size: s1, alpha: b.a }));
   const c = snap(t, C.s1c, 0.32, 1.6);
-  if (c.on) withScale(540, 1260, c.s, () => lines(['DO YOU HAVE', 'ADHD OR AUTISM?'], 540, 1260, 150, 1.02, { alpha: c.a, glow: 20 }));
+  if (c.on) withScale(540, 1260, c.s, () => lines(['DO YOU HAVE', 'ADHD OR AUTISM?'], 540, 1260, 150, 1.02, { alpha: c.a}));
   const d = enter(t, C.s1d, 0.6);
   lines(["Stay till the end.", "You'll know the only way to find out."], 540, 1530 + d.dy, 36, 1.5, { fam: MONO, alpha: d.a * 0.85 });
 }
@@ -236,7 +236,7 @@ function mythLine(t, tIn, tNe, left, right, y) {
   const s = snap(t, tNe, 0.26, 2.6);
   if (s.on) {
     withScale(540, y + 120, s.s, () => neq(540, y + 120, 150, s.a));
-    withScale(540, y + 290, s.s * 0.5 + 0.5, () => drawText(right, 540, y + 340, { size: size * 1.25, alpha: s.a, glow: 30 }));
+    withScale(540, y + 290, s.s * 0.5 + 0.5, () => drawText(right, 540, y + 340, { size: size * 1.25, alpha: s.a}));
   }
 }
 function scene2(t) {
@@ -276,7 +276,7 @@ function scene3(t) {
   phone(t);
   if (t >= C.c52) {
     const v = counter(t, C.c52, C.p52, 52);
-    withScale(540, 980, pop(t, C.p52, 0.22), () => drawText(v + '%', 540, 1060, { px: 250, glow: t >= C.p52 ? 40 : 0 }));
+    withScale(540, 980, pop(t, C.p52, 0.22), () => drawText(v + '%', 540, 1060, { px: 250}));
   }
   const l = enter(t, C.p52 + 0.1, 0.4);
   drawText('of top ADHD TikToks were misleading.', 540, 1165 + l.dy, { px: 58, maxW: 940, alpha: l.a });
@@ -289,7 +289,7 @@ function scene3(t) {
     ctx.restore();
   }
   const src = enter(t, C.c27 + 0.4, 0.5);
-  drawText('Can. J. Psychiatry 2022 · J. Autism Dev. Disord. 2023', 540, 1560, { px: 24, fam: MONO, alpha: src.a * 0.55 });
+  drawText('Can. J. Psychiatry 2022 · J. Autism Dev. Disord. 2023', 540, 1560, { px: 28, fam: MONO, alpha: src.a * 0.55 });
 }
 
 /* ============ SCENE 4: ADHD, THE REALITY ============ */
@@ -347,7 +347,7 @@ function stat(t, t0, t1, y, fmt, label, px = 200) {
   if (t < t0) return;
   const k = easeOutExpo(prog(t, t0, Math.max(0.3, t1 - t0)));
   const s = pop(t, t1, 0.12, 0.6);
-  withScale(540, y - px * 0.35, s, () => drawText(fmt(k), 540, y, { px, glow: t >= t1 ? 26 : 0 }));
+  withScale(540, y - px * 0.35, s, () => drawText(fmt(k), 540, y, { px}));
   const e = enter(t, t1 + 0.05, 0.5);
   lines(label, 540, y + 78 + e.dy, 48, 1.2, { alpha: e.a * 0.9, maxW: 900 });
 }
@@ -356,7 +356,7 @@ function scene6(t) {
   stat(t, C.c37, C.p37, 890, k => Math.round(37 * k) + '%', ['have had depression']);
   stat(t, C.c79, C.p79, 1240, k => k < 1 ? '~' + Math.max(1, Math.round(9 * k)) + ' YEARS' : '~7–9 YEARS', ['shorter lives on average for UK', 'adults diagnosed with ADHD'], 170);
   const src = enter(t, C.c79 + 0.6, 0.6);
-  drawText('Psychol. Med. 2019 · Br. J. Psychiatry 2025', 540, 1560, { px: 24, fam: MONO, alpha: src.a * 0.55 });
+  drawText('Psychol. Med. 2019 · Br. J. Psychiatry 2025', 540, 1560, { px: 28, fam: MONO, alpha: src.a * 0.55 });
 }
 
 /* ============ SCENE 7: THE ANSWER (the one white scene) ============ */
@@ -388,7 +388,7 @@ function progressBar(t) {
 function teaser(t) {   // keeps the promise alive until the answer
   if (t < C.cut2 || t >= C.cut7) return;
   const a = enter(t, C.cut2 + 0.4, 0.6).a * (0.42 + 0.12 * Math.sin(t * 3));
-  drawText('THE ONLY WAY TO KNOW: AT THE END', 540, 1605, { px: 24, fam: MONO, alpha: a });
+  drawText('THE ONLY WAY TO KNOW: AT THE END', 540, 1605, { px: 28, fam: MONO, alpha: a });
 }
 function camera(t, t0, t1, fn) { withScale(540, 960, 1 + 0.035 * prog(t, t0, t1 - t0), fn); }
 function flash(t, t0, d = 0.14) { if (t >= t0 && t < t0 + d) { ctx.fillStyle = '#FFF'; ctx.globalAlpha = 1 - (t - t0) / d; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1; } }
@@ -436,7 +436,7 @@ function frame(now) {
   if (!window.__capture) requestAnimationFrame(frame);
 }
 addEventListener('pointerdown', restart); addEventListener('keydown', restart);
-document.fonts.load('100px "Anton"').then(() => document.fonts.load('30px "JetBrains Mono"'))
+document.fonts.load('100px "HelvBold"').then(() => document.fonts.load('30px "HelvReg"'))
   .catch(() => {}).finally(() => { if (hasAudio) vo.play().catch(() => {}); requestAnimationFrame(frame); });
 </script>
 </body>
