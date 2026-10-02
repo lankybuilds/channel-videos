@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Brain Adapts</title>
+<style>
+  @font-face { font-family: "Anton"; src: url(data:font/woff2;base64,/*ANTON*/) format("woff2"); font-display: block; }
+  @font-face { font-family: "JetBrains Mono"; src: url(data:font/woff2;base64,/*MONO*/) format("woff2"); font-display: block; }
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; cursor: none; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<audio id="vo" preload="auto" src="/*AUDIO*/"></audio>
+<script>
+/* ============================================================
+   YOUR BRAIN CAN ADAPT: vertical kinetic-type loop (1080x1920)
+   One master timeline driven by requestAnimationFrame.
+   All timings come from CUES (seconds), synced to the voiceover.
+   Click / tap / any key restarts from 0 with sound.
+   Add #t=12 to the URL to jump to a second.
+   ============================================================ */
+const CUES = /*CUES*/;
+const W = 1080, H = 1920, DUR = CUES.dur;
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+cv.width = W; cv.height = H;
+
+function fitCanvas() {
+  const s = Math.min(innerWidth / W, innerHeight / H);
+  cv.style.width = (W * s) + 'px';
+  cv.style.height = (H * s) + 'px';
+}
+addEventListener('resize', fitCanvas); fitCanvas();
+
+const HEAD = '"Anton", Impact, "Arial Narrow", sans-serif';
+const MONO = '"JetBrains Mono", ui-monospace, Menlo, monospace';
+let FG = '#FFF', BG = '#000';
+
+/* ---------- easing & helpers ---------- */
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const prog = (t, t0, d) => clamp((t - t0) / d);
+const easeOutExpo = x => x >= 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const easeOutBack = x => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+const easeInOut = x => x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+
+function setFont(px, fam) { ctx.font = `${px}px ${fam}`; }
+function fitSize(str, fam, px, maxW) {
+  setFont(px, fam);
+  const w = ctx.measureText(str).width;
+  return w > maxW ? px * maxW / w : px;
+}
+function drawText(str, x, y, o = {}) {
+  const { px = 100, fam = HEAD, align = 'center', alpha = 1, maxW = 940, color = FG, size = null } = o;
+  if (alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha *= alpha;
+  setFont(size || fitSize(str, fam, px, maxW), fam);
+  ctx.textAlign = align; ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = color;
+  ctx.fillText(str, x, y);
+  ctx.restore();
+}
+function enter(t, t0, d = 0.45) {            // fast slide-up, then total stillness
+  const p = prog(t, t0, d), e = easeOutExpo(p);
+  return { a: clamp(p * 3), dy: (1 - e) * 44, on: t >= t0 };
+}
+function slam(t, t0, d = 0.3, from = 2.4) {  // scales down from large
+  const p = prog(t, t0, d);
+  return { s: 1 + (from - 1) * (1 - easeOutExpo(p)), a: clamp((t - t0) / 0.07), on: t >= t0 };
+}
+function withScale(cx, cy, s, fn) {
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(s, s); ctx.translate(-cx, -cy); fn(); ctx.restore();
+}
+const SHAKES = [CUES.slam + 0.28, CUES.practice + 0.28];   // only the two big slams
+function shakeOffset(t) {
+  let dx = 0, dy = 0;
+  for (const s of SHAKES) if (t >= s && t < s + 0.3) {
+    const amp = 5 * (1 - (t - s) / 0.3);
+    dx += amp * Math.sin(t * 173); dy += amp * Math.cos(t * 211);
+  }
+  return [dx, dy];
+}
+
+
+/* ============ SCENE 1: HOOK + HALF A BRAIN ============ */
+const HEM_CX = 540, HEM_CY = 760, HEM_RX = 330, HEM_RY = 270, GAP = 16;
+function hemi(side) {                       // one hemisphere as a half-ellipse
+  ctx.beginPath();
+  const x = HEM_CX + side * GAP;
+  if (side < 0) ctx.ellipse(x, HEM_CY, HEM_RX, HEM_RY, 0, Math.PI / 2, Math.PI * 1.5);
+  else ctx.ellipse(x, HEM_CY, HEM_RX, HEM_RY, 0, -Math.PI / 2, Math.PI / 2);
+  ctx.closePath();
+}
+const NODES = [[0.22, -0.55], [0.55, -0.42], [0.35, -0.12], [0.75, -0.05], [0.18, 0.2], [0.52, 0.28], [0.82, 0.38], [0.3, 0.6], [0.6, 0.66]];
+const EDGES = [[0,1],[0,2],[1,3],[2,3],[2,4],[2,5],[3,6],[4,5],[5,6],[4,7],[5,8],[7,8],[6,8],[1,2],[3,5]];
+const nodeXY = ([u, v]) => [HEM_CX + GAP + u * HEM_RX * 0.95, HEM_CY + v * HEM_RY * 0.9];
+function scene1(t) {
+  // hook: three lines, one at a time, then out when the story starts
+  const out = 1 - easeOutExpo(prog(t, CUES.kids - 0.05, 0.25));
+  if (out > 0) {
+    ctx.save(); ctx.globalAlpha = out;
+    const a = enter(t, CUES.h1);
+    drawText('YOUR BRAIN', 540, 700 + a.dy, { px: 210, alpha: a.a });
+    const b = enter(t, CUES.h2);
+    drawText('can adapt to almost', 540, 840 + b.dy, { px: 96, alpha: b.a });
+    const s = slam(t, CUES.slam);
+    if (s.on) withScale(540, 1020, s.s, () => drawText('ANYTHING.', 540, 1100, { px: 250, alpha: s.a }));
+    ctx.restore();
+  }
+  if (t < CUES.kids) return;
+  // brain outline draws in
+  const draw = easeOutExpo(prog(t, CUES.kids, 0.5));
+  ctx.save();
+  ctx.strokeStyle = FG; ctx.lineWidth = 7; ctx.lineJoin = 'round';
+  ctx.globalAlpha = draw;
+  // left hemisphere: falls away on "removed", leaves a dashed ghost
+  const fall = easeInOut(prog(t, CUES.removed, 0.55));
+  ctx.save(); ctx.setLineDash([14, 16]); ctx.globalAlpha = draw * 0.35 * fall; hemi(-1); ctx.stroke(); ctx.restore();
+  if (fall < 1) {
+    ctx.save(); ctx.translate(-60 * fall, 260 * fall * fall); ctx.globalAlpha = draw * (1 - fall);
+    hemi(-1); ctx.fillStyle = FG; ctx.globalAlpha *= 0.12; ctx.fill(); ctx.globalAlpha = draw * (1 - fall); ctx.stroke(); ctx.restore();
+  }
+  hemi(1); ctx.stroke();
+  // the remaining half wires up: edges then nodes, from "runs" to "network"
+  const span = CUES.network - CUES.runs + 0.3;
+  EDGES.forEach(([i, j], k) => {
+    const p = easeOutExpo(prog(t, CUES.runs + span * k / EDGES.length, 0.3));
+    if (p <= 0) return;
+    const [x1, y1] = nodeXY(NODES[i]), [x2, y2] = nodeXY(NODES[j]);
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 + (x2 - x1) * p, y1 + (y2 - y1) * p); ctx.stroke();
+  });
+  NODES.forEach((n, k) => {
+    const p = prog(t, CUES.runs + span * k / NODES.length, 0.25);
+    if (p <= 0) return;
+    const [x, y] = nodeXY(n);
+    ctx.fillStyle = FG; ctx.beginPath(); ctx.arc(x, y, 16 * easeOutBack(p), 0, Math.PI * 2); ctx.fill();
+  });
+  ctx.restore();
+  // captions under the brain, one line at a time
+  const swap = easeOutExpo(prog(t, CUES.years - 0.05, 0.25));
+  if (swap < 1) {
+    ctx.save(); ctx.globalAlpha = 1 - swap;
+    const h = enter(t, CUES.half);
+    drawText('HALF THE BRAIN', 540, 1260 + h.dy, { px: 130, alpha: h.a });
+    const r = enter(t, CUES.removed);
+    drawText('REMOVED.', 540, 1420 + r.dy, { px: 150, alpha: r.a });
+    ctx.restore();
+  }
+  const y = enter(t, CUES.years, 0.4);
+  if (y.on) drawText('YEARS LATER', 540, 1200 + y.dy * 0.5, { px: 38, fam: MONO, alpha: y.a * 0.8 });
+  const n = enter(t, CUES.runs);
+  drawText('The other half runs', 540, 1320 + n.dy, { px: 92, alpha: n.a });
+  const s2 = slam(t, CUES.network, 0.3, 1.6);
+  if (s2.on) withScale(540, 1420, s2.s, () => drawText('EVERY MAJOR NETWORK.', 540, 1470, { px: 120, alpha: s2.a }));
+  drawText('Caltech / Cell Reports, 2019', 540, 1590, { px: 26, fam: MONO, alpha: 0.6 * n.a });
+}
+
+/* ============ SCENE 2: BRAILLE ============ */
+const CELLS = [[2, 3, 4], [1, 5], [1, 5]];          // "SEE" in Braille
+const DOTPOS = { 1: [0, 0], 2: [0, 1], 3: [0, 2], 4: [1, 0], 5: [1, 1], 6: [1, 2] };
+function scene2(t) {
+  const h = enter(t, CUES.blind);
+  drawText('BLIND BRAILLE READERS', 540, 380 + h.dy, { px: 112, alpha: h.a });
+  const sp = 74, cellW = sp * 2 + 60, x0 = 540 - (3 * cellW - 60) / 2 + 37, y0 = 560;
+  const raised = [];
+  CELLS.forEach((c, ci) => c.forEach(d => raised.push([ci, d])));
+  const [d0, d1] = CUES.dots;
+  for (let ci = 0; ci < 3; ci++) for (let d = 1; d <= 6; d++) {
+    const [cx, cy] = DOTPOS[d], x = x0 + ci * cellW + cx * sp, y = y0 + cy * sp;
+    ctx.save(); ctx.strokeStyle = FG; ctx.lineWidth = 3; ctx.globalAlpha = 0.3 * h.a;
+    ctx.beginPath(); ctx.arc(x, y, 20, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+  }
+  const lit = prog(t, CUES.lights, 0.9);
+  raised.forEach(([ci, d], k) => {
+    const p = prog(t, d0 + (d1 - d0) * k / raised.length, 0.22);
+    if (p <= 0) return;
+    const [cx, cy] = DOTPOS[d], x = x0 + ci * cellW + cx * sp, y = y0 + cy * sp;
+    ctx.fillStyle = FG; ctx.beginPath(); ctx.arc(x, y, 22 * easeOutBack(p), 0, Math.PI * 2); ctx.fill();
+    if (lit > 0 && lit < 1) {                    // "lights up": rings ripple out of each raised dot
+      ctx.save(); ctx.strokeStyle = FG; ctx.lineWidth = 3; ctx.globalAlpha = 1 - lit;
+      ctx.beginPath(); ctx.arc(x, y, 22 + 44 * easeOutExpo(lit), 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
+  });
+  const cap = enter(t, d1, 0.4);
+  drawText('"SEE" in Braille', 540, y0 + 2 * sp + 90 + cap.dy * 0.4, { px: 30, fam: MONO, alpha: cap.a * 0.7 });
+  const v = enter(t, CUES.vision);
+  drawText('Their VISION area', 540, 1130 + v.dy, { px: 110, alpha: v.a });
+  const l = slam(t, CUES.lights, 0.3, 1.7);
+  if (l.on) withScale(540, 1260, l.s, () => drawText('LIGHTS UP', 540, 1330, { px: 210, alpha: l.a }));
+  const f = enter(t, CUES.finger);
+  drawText('through their fingertips.', 540, 1460 + f.dy, { px: 80, alpha: f.a });
+  drawText('Sadato et al., Nature, 1996', 540, 1590, { px: 26, fam: MONO, alpha: 0.6 * v.a });
+}
+
+/* ============ SCENE 3: LONDON CABBIES ============ */
+const STREETS = (() => {                         // deterministic street-map lines
+  let s = 11; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const out = [];
+  for (let i = 0; i < 26; i++) {
+    const hz = r() < 0.5, a = r(), b = r(), c = r();
+    out.push(hz ? [90 + 300 * b, 520 + 480 * a, 990 - 300 * c, 520 + 480 * (a + (r() - 0.5) * 0.25)]
+                : [90 + 900 * a, 520 + 160 * b, 90 + 900 * (a + (r() - 0.5) * 0.25), 1000 - 160 * c]);
+  }
+  return out;
+})();
+function scene3(t) {
+  const h = enter(t, CUES.london);
+  drawText('LONDON CABBIES', 540, 400 + h.dy, { px: 150, alpha: h.a });
+  const [m0, m1] = [CUES.london + 0.35, CUES.count[0]];
+  const dim = 1 - 0.75 * easeOutExpo(prog(t, CUES.count[0], 0.4));
+  ctx.save(); ctx.strokeStyle = FG; ctx.lineCap = 'round'; ctx.lineWidth = 4; ctx.globalAlpha = dim;
+  STREETS.forEach(([x1, y1, x2, y2], k) => {
+    const p = easeOutExpo(prog(t, m0 + (m1 - m0) * k / STREETS.length, 0.3));
+    if (p <= 0) return;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x1 + (x2 - x1) * p, y1 + (y2 - y1) * p); ctx.stroke();
+  });
+  ctx.restore();
+  const [c0, c1] = CUES.count;
+  if (t >= c0) {
+    const p = easeOutExpo(prog(t, c0, c1 - c0 + 0.2));
+    const n = Math.round(25000 * p);
+    drawText(n.toLocaleString('en-US'), 540, 850, { px: 260, maxW: 900 });
+    const s = enter(t, CUES.streets, 0.4);
+    drawText('STREETS MEMORIZED', 540, 940 + s.dy * 0.4, { px: 40, fam: MONO, alpha: s.a });
+  }
+  const m = enter(t, CUES.memory);
+  drawText('Their memory hub', 540, 1250 + m.dy, { px: 110, alpha: m.a });
+  const g = slam(t, CUES.grows, 0.32, 0.4);      // grows FROM small
+  if (g.on) withScale(540, 1400, g.s, () => drawText('GROWS.', 540, 1480, { px: 250, alpha: g.a }));
+  drawText('Woollett & Maguire, Current Biology, 2011', 540, 1590, { px: 26, fam: MONO, alpha: 0.6 * h.a });
+}
+
+/* ============ SCENE 4: THE TURN (the one inverted scene) ============ */
+function scene4(t) {
+  const clear = 1 - easeOutExpo(prog(t, CUES.remember - 0.1, 0.25));
+  if (clear > 0) {
+    ctx.save(); ctx.globalAlpha = clear;
+    const dimTop = 1 - 0.7 * easeOutExpo(prog(t, CUES.but, 0.4));
+    ctx.save(); ctx.globalAlpha *= dimTop;
+    const a = enter(t, CUES.some);
+    drawText('Some people are', 540, 470 + a.dy, { px: 90, alpha: a.a });
+    const b = enter(t, CUES.gifted);
+    drawText('BORN GIFTED.', 540, 640 + b.dy, { px: 160, alpha: b.a });
+    ctx.restore();
+    const c = enter(t, CUES.but);
+    drawText('But your brain', 540, 900 + c.dy, { px: 110, alpha: c.a });
+    const d = enter(t, CUES.rewires);
+    drawText('REWIRES AROUND', 540, 1060 + d.dy, { px: 140, alpha: d.a });
+    const e = enter(t, CUES.whatever);
+    drawText('whatever you', 540, 1190 + e.dy, { px: 100, alpha: e.a });
+    const p = slam(t, CUES.practice);
+    if (p.on) withScale(540, 1340, p.s, () => drawText('PRACTICE.', 540, 1430, { px: 250, alpha: p.a }));
+    ctx.restore();
+  }
+  if (t >= CUES.remember) {
+    const r = enter(t, CUES.remember);
+    drawText('Remember this tomorrow?', 540, 760 + r.dy, { px: 96, alpha: r.a });
+    const y = enter(t, CUES.ybj);
+    drawText('Your brain just', 540, 990 + y.dy, { px: 120, alpha: y.a });
+    const ph = enter(t, CUES.phys);
+    drawText('PHYSICALLY', 540, 1180 + ph.dy, { px: 210, alpha: ph.a });
+    const ch = slam(t, CUES.changed, 0.3, 2.0);
+    if (ch.on) withScale(540, 1320, ch.s, () => drawText('CHANGED.', 540, 1400, { px: 230, alpha: ch.a }));
+    drawText('Sources: Cell Reports 2019 / Nature 1996 / Current Biology 2011', 540, 1590, { px: 24, fam: MONO, alpha: 0.6 * y.a });
+  }
+}
+
+/* ============ MASTER RENDER ============ */
+function progressBar(t) {
+  ctx.fillStyle = FG;
+  ctx.globalAlpha = 0.18; ctx.fillRect(0, H - 8, W, 8);
+  ctx.globalAlpha = 1; ctx.fillRect(0, H - 8, W * (t / DUR), 8);
+}
+function camera(t, t0, t1, fn) {             // barely-there drift so holds feel alive
+  withScale(540, 960, 1 + 0.015 * prog(t, t0, t1 - t0), fn);
+}
+function render(t) {
+  const inverted = t >= CUES.cut3;
+  BG = inverted ? '#FFF' : '#000';
+  FG = inverted ? '#000' : '#FFF';
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+  const [dx, dy] = shakeOffset(t);
+  ctx.save(); ctx.translate(dx, dy);
+  const c1 = CUES.cut1, WIPE = 0.28;
+  if (t < c1) camera(t, 0, c1, () => scene1(t));
+  else if (t < c1 + WIPE) {                  // transition 1: quick wipe
+    const edge = W * easeInOut((t - c1) / WIPE);
+    ctx.save(); ctx.beginPath(); ctx.rect(edge, 0, W - edge, H); ctx.clip();
+    camera(c1 - 0.001, 0, c1, () => scene1(c1 - 0.001)); ctx.restore();
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, edge, H); ctx.clip(); scene2(t); ctx.restore();
+    ctx.fillStyle = FG; ctx.fillRect(edge - 3, 0, 6, H);
+  }
+  else if (t < CUES.cut2) camera(t, c1 + WIPE, CUES.cut2, () => scene2(t));
+  else if (t < CUES.cut3) camera(t, CUES.cut2, CUES.cut3, () => scene3(t));  // transition 2: hard cut
+  else camera(t, CUES.cut3, DUR, () => scene4(t));                           // transition 3: hard cut to white
+  ctx.restore();
+  progressBar(t);
+}
+window.renderAt = render;
+
+/* ---------- playback ---------- */
+const vo = document.getElementById('vo');
+const hasAudio = vo.getAttribute('src').startsWith('data:');
+const hashT = parseFloat((location.hash.match(/t=([\d.]+)/) || [])[1]);
+let start = null, lastLoop = -1;
+function restart() {
+  start = null; lastLoop = -1;
+  if (hasAudio) { vo.currentTime = 0; vo.play().catch(() => {}); }
+}
+function frame(now) {
+  if (start === null) start = now - (isNaN(hashT) ? 0 : hashT * 1000);
+  const el = (now - start) / 1000, loop = Math.floor(el / DUR);
+  if (loop !== lastLoop) {                   // re-sync audio at each loop start
+    lastLoop = loop;
+    if (hasAudio && loop > 0) { vo.currentTime = 0; vo.play().catch(() => {}); }
+  }
+  render(el % DUR);
+  if (!window.__capture) requestAnimationFrame(frame);
+}
+addEventListener('pointerdown', restart);
+addEventListener('keydown', restart);
+document.fonts.load('100px "Anton"').then(() => document.fonts.load('30px "JetBrains Mono"'))
+  .catch(() => {}).finally(() => {
+    if (hasAudio) vo.play().catch(() => {});  // browsers may block until first click
+    requestAnimationFrame(frame);
+  });
+</script>
+</body>
+</html>
