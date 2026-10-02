@@ -14,11 +14,15 @@ The daily scheduled run follows this file. Keep it up to date when the owner giv
 ## Topics
 Alternate days: tech/AI in numbers, then general mind-blowing facts (science, history, the body, big-number comparisons). Vary the format (surge/growth chart, myth-bust, scale comparison, "how it works") so the channel doesn't look mass-produced. Check `topics.md` to avoid repeats, and add each new topic there.
 
+## Topic approval (shorts, before any voice generation)
+- After picking and fact-checking the topic, message the owner a pitch: the topic, the angle/format, the key facts with sources, and the draft script. Then stop and wait.
+- Generate the voice only after the owner approves the idea. If they reject it, pitch a different topic (same category rules) and wait again. Never spend ElevenLabs credits on an unapproved idea.
+
 ## Voice (ElevenLabs connector)
 - Voice "Mike - Social Media, Narrator, Clean", voice_id E4aVOlWL5DGbFy7TWmZA, model eleven_v3, generations_count 1 (ONE take only: the owner wants to save credits).
 - Create one flow per video (creative_create_flow), named "<date> - <topic>".
 - Script: 55-70 words (about 25-28 s after trimming pauses), 2-9 word sentences, numbers spelled out in words, CAPS on 1-2 emphasis words, a varied eleven_v3 tag at the start of each line ([dramatic], [building excitement], [impressed], [whispering], [intrigued], [serious], [curious]...).
-- The workspace cannot download from ElevenLabs. Message the owner the script plus the flow link, and ask them to attach the take as an MP3 (or ask for a redo if they dislike it).
+- The workspace cannot download from ElevenLabs. Once the idea is approved and the take is generated, message the owner the flow link, and ask them to attach the take as an MP3 (or ask for a redo if they dislike it).
 
 ## Build (after the MP3 arrives)
 Work in a scratch folder with `OUT=<folder>`. Copy in `pipeline/`, then:
