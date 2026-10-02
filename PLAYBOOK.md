@@ -38,6 +38,7 @@ Work in a scratch folder with `OUT=<folder>`. Copy in `pipeline/`, then:
 - createScheduledPost with media = `https://raw.githubusercontent.com/lankybuilds/channel-videos/main/videos/<file>.mp4`
 - providers instagram (instagramData type REEL, showReelOnFeed true, isAiGenerated true) and tiktok (tiktokData title required, privacyOption PUBLIC_TO_EVERYONE, isAigc true).
 - Time: 10:00 AM today. If it's already past about 9:45 AM, use 6:00 PM today, or 10:00 AM tomorrow if that has passed too.
+- Before scheduling, check getScheduledPosts for that day. If the slot already has a post, use the next free slot (10 AM, then 6 PM, then the next day's 10 AM).
 - Caption: 2-3 short lines (hook, question for comments, "Source: ..."), then 5-6 relevant hashtags. No emojis.
 - Send the owner the planner link, time and caption when done.
 
